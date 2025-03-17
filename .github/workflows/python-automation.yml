@@ -27,5 +27,5 @@ jobs:
           TOKEN: ${{ secrets.TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
           GROUP_ID: ${{ secrets.GROUP_ID }}
-          LATEST: ${{ vars.LATEST }}
+          SEEN: ${{ vars.SEEN }}
         run: python main.py
