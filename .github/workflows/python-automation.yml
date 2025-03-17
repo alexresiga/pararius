@@ -3,7 +3,6 @@ name: Run Python Script
 on:
   schedule:
     - cron: '*/5 * * * *'  # Runs every 5 minutes
-  workflow_dispatch:  # Allows manual trigger
 
 jobs:
   run-script:
@@ -22,10 +21,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt || echo "No requirements.txt found"
 
-      - name: Run Python script
+      - name: Check Pararius
         env:
           TOKEN: ${{ secrets.TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
           GROUP_ID: ${{ secrets.GROUP_ID }}
-
         run: python main.py
