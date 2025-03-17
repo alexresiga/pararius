@@ -2,7 +2,7 @@ name: Run Python Script
 
 on:
   schedule:
-    - cron: '0 8 * * *'  # Runs every day at 12:00 UTC
+    - cron: '*/5 * * * *'  # Runs every 5 minutes
   workflow_dispatch:  # Allows manual trigger
 
 jobs:
@@ -23,4 +23,9 @@ jobs:
           pip install -r requirements.txt || echo "No requirements.txt found"
 
       - name: Run Python script
+        env:
+          TOKEN: ${{ secrets.TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+          GROUP_ID: ${{ secrets.GROUP_ID }}
+
         run: python main.py
