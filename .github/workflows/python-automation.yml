@@ -1,4 +1,4 @@
-name: Run Python Script
+name: Check Pararius
 
 on:
   schedule:
@@ -21,7 +21,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt || echo "No requirements.txt found"
 
-      - name: Check Pararius
+      - name: Run Python Script
         env:
           TOKEN: ${{ secrets.TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
