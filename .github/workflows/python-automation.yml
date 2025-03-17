@@ -3,7 +3,7 @@ name: Check Pararius
 on:
   workflow_dispatch:
   schedule:
-    - cron: '*/5 * * * *'  # Runs every 5 minutes
+    - cron: '*/30 * * * *'  # Runs every 30 minutes
 
 jobs:
   run-script:
