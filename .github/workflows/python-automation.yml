@@ -29,3 +29,11 @@ jobs:
           GROUP_ID: ${{ secrets.GROUP_ID }}
           SEEN: ${{ vars.SEEN }}
         run: python main.py
+
+      - name: Update SEEN apartments
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions@github.com"
+          git add seen.txt
+          git commit -m "Updated seen apartments [skip ci]" || echo "No changes to commit"
+          git push
