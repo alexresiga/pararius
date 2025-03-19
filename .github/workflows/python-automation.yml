@@ -32,7 +32,6 @@ jobs:
           TOKEN: ${{ secrets.TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
           GROUP_ID: ${{ secrets.GROUP_ID }}
-          SEEN: ${{ vars.SEEN }}
         run: python main.py
 
       - name: Update SEEN apartments
