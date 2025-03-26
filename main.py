@@ -16,7 +16,6 @@ PRICE_XPATH = "//div[contains(@class, 'listing-search-item__price')]"
 
 def get_latest():
     seen = set(open("seen.txt").read().split('\n'))
-    logger.info(f"seen={seen}")
     browser.get("https://www.pararius.com/apartments/amsterdam/0-2250")
     sections = browser.find_elements(By.XPATH, SECTIONS_XPATH)
     if sections:
