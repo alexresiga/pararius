@@ -3,7 +3,7 @@ name: Check Pararius
 on:
   workflow_dispatch:
   schedule:
-    - cron: '*/10 8-23 * * *'  # Runs every 10 minutes between 8 and 23:59
+    - cron: '0 8-20 * * *'  # Runs every hour between 8 and 20:59
 
 permissions:
   contents: write
