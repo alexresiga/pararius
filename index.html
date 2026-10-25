@@ -65,6 +65,17 @@
   .version.collapsed .crosses { display: block; }
   .version.collapsed .details { display: none; }
   .version a { color: inherit; font-variant-numeric: tabular-nums; }
+  .version .details { display: grid; gap: 4px; }
+  .version.failing .crosses g { stroke: #cf222e; }
+  .version .off { color: #cf222e; font-weight: 600; }
+  .runs { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .dots { display: inline-flex; gap: 3px; }
+  .dots a { display: block; width: 10px; height: 10px; border-radius: 50%; background: #8c959f; }
+  .dots a.success { background: #1a7f37; }
+  .dots a.failure, .dots a.timed_out, .dots a.startup_failure { background: #cf222e; }
+  .dots a.active { background: #bf8700; animation: pulse 1.2s ease-in-out infinite; }
+  .dots a:hover { outline: 2px solid var(--ink); outline-offset: 1px; }
+  @keyframes pulse { 50% { opacity: 0.35; } }
   @media (max-width: 600px) { .version { bottom: auto; top: 12px; left: 56px; max-width: calc(100% - 68px); } }
   @media (max-width: 600px) { .panel { top: auto; height: 55%; } }
 </style>
@@ -107,7 +118,10 @@
       <path d="M3 3 15 15M15 3 3 15"/><path d="M26 3 38 15M38 3 26 15"/><path d="M49 3 61 15M61 3 49 15"/>
     </g>
   </svg>
-  <span class="details" id="version-details">v1.1.0 · loading deploy info…</span>
+  <span class="details">
+    <span id="version-details">v1.2.0 · loading deploy info…</span>
+    <span class="runs" id="runs">loading runs…</span>
+  </span>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -121,7 +135,7 @@ const REPO = location.hostname.endsWith('.github.io')
   ? `${location.hostname.split('.')[0]}/${location.pathname.split('/')[1]}`
   : 'alexresiga/pararius';
 const BRANCH = 'main';
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 document.getElementById('secrets-link').href = `https://github.com/${REPO}/settings/secrets/actions`;
 document.getElementById('actions-link').href = `https://github.com/${REPO}/actions`;
 
@@ -284,6 +298,55 @@ async function showDeployInfo() {
   }
 }
 showDeployInfo();
+
+const WORKFLOW_FILE = 'python-automation.yml';
+const FAILED = ['failure', 'timed_out', 'startup_failure'];
+const runTime = d => new Date(d).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+
+async function showRuns() {
+  const box = document.getElementById('runs');
+  const api = `https://api.github.com/repos/${REPO}/actions`;
+  try {
+    const [workflow, runs] = await Promise.all([
+      fetch(`${api}/workflows/${WORKFLOW_FILE}`).then(r => r.ok ? r.json() : Promise.reject(r.status)),
+      fetch(`${api}/workflows/${WORKFLOW_FILE}/runs?per_page=10`).then(r => r.ok ? r.json() : Promise.reject(r.status)).then(d => d.workflow_runs),
+    ]);
+    // a disabled workflow (by hand, or by GitHub after 60 days without activity) runs nothing
+    const disabled = workflow.state !== 'active'
+      ? `<a href="https://github.com/${REPO}/actions/workflows/${WORKFLOW_FILE}" target="_blank" rel="noopener"><b class="off">workflow ${workflow.state === 'disabled_inactivity' ? 'disabled for inactivity' : 'disabled'}</b></a> · `
+      : '';
+    if (!runs.length) { box.innerHTML = `${disabled}no runs yet`; return; }
+
+    const dots = runs.slice().reverse().map(run => {
+      const active = run.status !== 'completed';
+      const result = active ? run.status.replace('_', ' ') : run.conclusion.replace('_', ' ');
+      const seconds = Math.round((new Date(run.updated_at) - new Date(run.run_started_at || run.created_at)) / 1000);
+      const how = run.event === 'schedule' ? 'scheduled' : run.event === 'workflow_dispatch' ? 'manual' : run.event;
+      const title = `${runTime(run.created_at)} · ${how} · ${result}${active ? '' : ` · ${seconds}s`}`;
+      return `<a class="${active ? 'active' : run.conclusion}" href="${run.html_url}" target="_blank" rel="noopener" title="${title}"></a>`;
+    }).join('');
+
+    const lastDone = runs.find(run => run.status === 'completed');
+    const lastSuccess = runs.find(run => run.conclusion === 'success');
+    let summary = lastSuccess ? `last success ${ago(new Date(lastSuccess.created_at))}` : 'no recent success';
+    const failing = lastDone && FAILED.includes(lastDone.conclusion);
+    if (failing) {
+      // the step name is public; the actual reason is only in the logs and the Telegram chat
+      try {
+        const jobs = await fetch(`${api}/runs/${lastDone.id}/jobs`).then(r => r.json());
+        const step = jobs.jobs.flatMap(job => job.steps || []).find(step => FAILED.includes(step.conclusion));
+        if (step) summary = `last run failed at “${step.name}” · ${summary}`;
+      } catch (e) {}
+    }
+    document.getElementById('version').classList.toggle('failing', !!failing || !!disabled);
+    box.innerHTML = `runs <span class="dots">${dots}</span> <span>${disabled}${summary}</span>`;
+  } catch (e) {
+    box.textContent = 'run status unavailable';
+  }
+}
+showRuns();
+// keep it current while the page is open, within the 60 requests/hour unauthenticated limit
+setInterval(() => { if (!document.hidden) showRuns(); }, 10 * 60 * 1000);
 
 const versionBox = document.getElementById('version');
 const COLLAPSED_KEY = 'pararius-version-collapsed';
