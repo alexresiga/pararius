@@ -22,7 +22,7 @@ def get_latest(sb):
     sections = browser.find_elements(By.XPATH, SECTIONS_XPATH)
     if sections:
         for index, section in enumerate(sections[:3][::-1]):
-            section_text = "\n".join(section.text.split('\n')[:-1])
+            section_text = "\n".join(line for line in section.text.split('\n')[:-1] if line != "Save as favourite")
             href = section.find_elements(By.XPATH, ELEMENT_XPATH)[2 - index].get_attribute('href')
             price = section.find_elements(By.XPATH, PRICE_XPATH)[2 - index].text.split()[0]
             message = f"[{price}]({href}) - {section_text}"
