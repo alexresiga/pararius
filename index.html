@@ -54,6 +54,14 @@
   code { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; background: #f6f8fa; padding: 0 3px; border-radius: 3px; }
   .pc-label { background: none; border: none; box-shadow: none; font-weight: 600; font-size: 11px; color: #343a40; text-shadow: 0 0 3px #fff, 0 0 3px #fff; padding: 0; }
   .pc-label::before { display: none; }
+  .version {
+    position: absolute; z-index: 1000; left: 12px; bottom: 24px; max-width: calc(100% - 24px); box-sizing: border-box;
+    padding: 6px 10px; font-size: 12px; color: var(--muted);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  .version b { color: var(--ink); }
+  .version a { color: inherit; font-variant-numeric: tabular-nums; }
+  @media (max-width: 600px) { .version { bottom: auto; top: 12px; left: 56px; max-width: calc(100% - 68px); } }
   @media (max-width: 600px) { .panel { top: auto; height: 55%; } }
 </style>
 </head>
@@ -88,6 +96,7 @@
     </details>
   </footer>
 </aside>
+<div class="version" id="version"><b>v1.1.0</b> · loading deploy info…</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
@@ -100,6 +109,7 @@ const REPO = location.hostname.endsWith('.github.io')
   ? `${location.hostname.split('.')[0]}/${location.pathname.split('/')[1]}`
   : 'alexresiga/pararius';
 const BRANCH = 'main';
+const VERSION = '1.1.0';
 document.getElementById('secrets-link').href = `https://github.com/${REPO}/settings/secrets/actions`;
 document.getElementById('actions-link').href = `https://github.com/${REPO}/actions`;
 
@@ -237,6 +247,32 @@ document.getElementById('save').addEventListener('click', async e => {
 });
 document.getElementById('reset').addEventListener('click', () => { selected = new Set(saved); refresh(); });
 document.getElementById('clear').addEventListener('click', () => { selected.clear(); refresh(); });
+
+function ago(date) {
+  const minutes = Math.round((Date.now() - date) / 60000);
+  if (minutes < 60) return `${Math.max(minutes, 0)} min ago`;
+  if (minutes < 48 * 60) return `${Math.round(minutes / 60)} h ago`;
+  return `${Math.round(minutes / 1440)} days ago`;
+}
+
+async function showDeployInfo() {
+  const box = document.getElementById('version');
+  const api = `https://api.github.com/repos/${REPO}/commits`;
+  try {
+    // Pages redeploys on every push to main; the page itself only changes when index.html does
+    const [latest, page] = await Promise.all([
+      fetch(`${api}/${BRANCH}`).then(r => r.ok ? r.json() : Promise.reject(r.status)),
+      fetch(`${api}?sha=${BRANCH}&path=index.html&per_page=1`).then(r => r.ok ? r.json() : Promise.reject(r.status)).then(c => c[0]),
+    ]);
+    const link = c => `<a href="${c.html_url}" target="_blank" rel="noopener" title="${c.commit.message.split('\n')[0].replace(/"/g, '&quot;')}">${c.sha.slice(0, 7)}</a>`;
+    const when = c => new Date(c.commit.committer.date);
+    box.innerHTML = `<b>v${VERSION}</b> · page ${link(page)} (${ago(when(page))}) · deployed ${link(latest)} (${ago(when(latest))})`;
+    box.title = `Last deploy: ${when(latest).toLocaleString()}`;
+  } catch (e) {
+    box.innerHTML = `<b>v${VERSION}</b> · deploy info unavailable`;
+  }
+}
+showDeployInfo();
 
 (async () => {
   let draft = null;
