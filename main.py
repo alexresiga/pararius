@@ -2,6 +2,7 @@ import logging
 
 import os
 import sys
+import time
 import requests
 from selenium.webdriver.common.by import By
 from seleniumbase import SB
@@ -54,7 +55,8 @@ def get_latest(sb):
         return False
 
     ok = True
-    for section in sections[:3][::-1]:
+    # check every listing on the page, oldest first, so none are missed when several appear within an hour
+    for section in sections[::-1]:
         links = section.find_elements(By.XPATH, ELEMENT_XPATH)
         prices = section.find_elements(By.XPATH, PRICE_XPATH)
         if not links or not prices:
@@ -65,7 +67,7 @@ def get_latest(sb):
         href = links[0].get_attribute('href')
         price = prices[0].text.split()[0]
         if href in seen:
-            send_message(CHAT_ID, escape_markdown(f"seen already, skipping {href}"))
+            # log only; messaging every seen listing on the page would flood the chat each run
             logger.info(f"seen already, skipping {href}")
             continue
         logger.info(f"[{price}]({href}) - {section_text}")
@@ -75,6 +77,8 @@ def get_latest(sb):
                 f.write(f"{href}\n")
         else:
             ok = False
+        # stay under Telegram's limit of 20 messages per minute to a group
+        time.sleep(3)
     return ok
 
 
