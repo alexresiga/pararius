@@ -59,7 +59,12 @@
     padding: 6px 10px; font-size: 12px; color: var(--muted);
     background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
+  .version { cursor: pointer; user-select: none; }
   .version b { color: var(--ink); }
+  .version .crosses { display: none; }
+  .version.collapsed { padding: 6px 8px; line-height: 0; }
+  .version.collapsed .crosses { display: block; }
+  .version.collapsed .details { display: none; }
   .version a { color: inherit; font-variant-numeric: tabular-nums; }
   @media (max-width: 600px) { .version { bottom: auto; top: 12px; left: 56px; max-width: calc(100% - 68px); } }
   @media (max-width: 600px) { .panel { top: auto; height: 55%; } }
@@ -96,7 +101,15 @@
     </details>
   </footer>
 </aside>
-<div class="version" id="version"><b>v1.1.0</b> · loading deploy info…</div>
+<div class="version" id="version" role="button" tabindex="0" title="Click to collapse">
+  <!-- the three St Andrew's crosses from Amsterdam's coat of arms -->
+  <svg class="crosses" width="54" height="18" viewBox="0 0 54 18" aria-label="Show version info">
+    <g stroke="#000" stroke-width="4.5" stroke-linecap="square">
+      <path d="M3 3 15 15M15 3 3 15"/><path d="M21 3 33 15M33 3 21 15"/><path d="M39 3 51 15M51 3 39 15"/>
+    </g>
+  </svg>
+  <span class="details" id="version-details"><b>v1.1.0</b> · loading deploy info…</span>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
@@ -256,7 +269,7 @@ function ago(date) {
 }
 
 async function showDeployInfo() {
-  const box = document.getElementById('version');
+  const box = document.getElementById('version-details');
   const api = `https://api.github.com/repos/${REPO}/commits`;
   try {
     // Pages redeploys on every push to main, so its latest commit is the current build
@@ -266,12 +279,28 @@ async function showDeployInfo() {
     const when = new Date(commit.commit.committer.date);
     const message = commit.commit.message.split('\n')[0].replace(/"/g, '&quot;');
     box.innerHTML = `<b>v${VERSION}</b> · build <a href="${commit.html_url}" target="_blank" rel="noopener" title="${message}">${commit.sha.slice(0, 7)}</a> (${ago(when)})`;
-    box.title = `Built ${when.toLocaleString()}`;
+    box.title = `Built ${when.toLocaleString()} · click to collapse`;
   } catch (e) {
     box.innerHTML = `<b>v${VERSION}</b> · deploy info unavailable`;
   }
 }
 showDeployInfo();
+
+const versionBox = document.getElementById('version');
+const COLLAPSED_KEY = 'pararius-version-collapsed';
+function setCollapsed(collapsed) {
+  versionBox.classList.toggle('collapsed', collapsed);
+  versionBox.title = collapsed ? 'Show version info' : 'Click to collapse';
+  try { localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : ''); } catch (e) {}
+}
+try { setCollapsed(localStorage.getItem(COLLAPSED_KEY) === '1'); } catch (e) {}
+versionBox.addEventListener('click', e => {
+  if (e.target.closest('a')) return; // let the commit link open without collapsing
+  setCollapsed(!versionBox.classList.contains('collapsed'));
+});
+versionBox.addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); versionBox.click(); }
+});
 
 (async () => {
   let draft = null;
