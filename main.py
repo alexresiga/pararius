@@ -20,6 +20,13 @@ def get_latest(sb):
     sb.uc_open_with_reconnect("https://www.pararius.com/apartments/amsterdam/0-2250", 6)
     browser = sb.driver
     sections = browser.find_elements(By.XPATH, SECTIONS_XPATH)
+    logger.info(f"page title: {browser.title!r}, url: {browser.current_url}, sections found: {len(sections)}")
+    if not sections:
+        source = browser.page_source
+        if "Just a moment" in browser.title or "challenges.cloudflare.com" in source or "cf-chl" in source:
+            logger.warning("blocked by Cloudflare challenge page")
+        else:
+            logger.warning(f"no Cloudflare challenge detected, listing markup may have changed. page start: {source[:500]!r}")
     if sections:
         for index, section in enumerate(sections[:3][::-1]):
             section_text = "\n".join(line for line in section.text.split('\n')[:-1] if line != "Save as favourite")
