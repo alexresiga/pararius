@@ -32,7 +32,14 @@ def send_message(chat_id, text):
     )
     if not response.ok:
         logger.error(f"telegram sendMessage failed ({response.status_code}): {response.text}")
-    return response.ok
+    return response
+
+
+def report_problem(text):
+    # problems go to the private chat so the group only ever gets listings
+    logger.warning(text)
+    # Telegram rejects messages over 4096 characters; leave room for escaping
+    send_message(CHAT_ID, escape_markdown(text[:3500]))
 
 
 def get_latest(sb):
@@ -47,11 +54,13 @@ def get_latest(sb):
     if not sections:
         source = browser.page_source
         if "Just a moment" in browser.title or "challenges.cloudflare.com" in source or "cf-chl" in source:
-            logger.warning("blocked by Cloudflare challenge page")
+            report_problem(f"No listings found: blocked by Cloudflare challenge page (title {browser.title!r})")
         else:
-            logger.warning(f"no Cloudflare challenge detected, listing markup may have changed. page start: {source[:500]!r}")
-        send_message(CHAT_ID, "no sections")
-        logger.info('😴😴😴')
+            report_problem(
+                f"No listings found and no Cloudflare challenge detected, listing markup may have changed.\n"
+                f"title: {browser.title!r}\nurl: {browser.current_url}"
+            )
+            logger.warning(f"page start: {source[:500]!r}")
         return False
 
     ok = True
@@ -60,7 +69,7 @@ def get_latest(sb):
         links = section.find_elements(By.XPATH, ELEMENT_XPATH)
         prices = section.find_elements(By.XPATH, PRICE_XPATH)
         if not links or not prices:
-            logger.warning(f"listing is missing a title link or price, skipping: {section.text!r}")
+            report_problem(f"Listing is missing a title link or price, markup may have changed. Skipped:\n{section.text}")
             ok = False
             continue
         section_text = "\n".join(line for line in section.text.split('\n')[:-1] if line != "Save as favourite")
@@ -71,11 +80,13 @@ def get_latest(sb):
             logger.info(f"seen already, skipping {href}")
             continue
         logger.info(f"[{price}]({href}) - {section_text}")
-        if send_message(GROUP_ID, f"[{escape_markdown(price)}]({href}) - {escape_markdown(section_text)}"):
+        response = send_message(GROUP_ID, f"[{escape_markdown(price)}]({href}) - {escape_markdown(section_text)}")
+        if response.ok:
             # only mark as seen once delivered, so a failed send is retried next run
             with open("seen.txt", "a") as f:
                 f.write(f"{href}\n")
         else:
+            report_problem(f"Failed to send {href} to the group ({response.status_code}): {response.text}\nIt will be retried next run.")
             ok = False
         # stay under Telegram's limit of 20 messages per minute to a group
         time.sleep(3)
@@ -88,7 +99,11 @@ if __name__ == "__main__":
         logger.error(f"missing environment variables: {', '.join(missing)}")
         sys.exit(1)
     # xvfb gives Chrome a virtual display on Linux; headed Chrome is far less likely to be flagged than headless
-    with SB(uc=True, xvfb=True) as sb:
-        succeeded = get_latest(sb)
+    try:
+        with SB(uc=True, xvfb=True) as sb:
+            succeeded = get_latest(sb)
+    except Exception as e:
+        report_problem(f"Script crashed: {type(e).__name__}: {e}")
+        raise
     # a non-zero exit fails the workflow run so GitHub sends a failure email instead of silently passing
     sys.exit(0 if succeeded else 1)
