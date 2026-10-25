@@ -2,8 +2,8 @@ import logging
 
 import os
 import requests
-from selenium import webdriver
 from selenium.webdriver.common.by import By
+from seleniumbase import SB
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -14,9 +14,11 @@ SECTIONS_XPATH = "//div[contains(@class, 'listing-search-item__content')]"
 ELEMENT_XPATH = "//a[contains(@class, 'listing-search-item__link listing-search-item__link--title')]"
 PRICE_XPATH = "//div[contains(@class, 'listing-search-item__price')]"
 
-def get_latest():
+def get_latest(sb):
     seen = set(open("seen.txt").read().split('\n'))
-    browser.get("https://www.pararius.com/apartments/amsterdam/0-2250")
+    # UC mode disconnects chromedriver while the page loads so Cloudflare's challenge doesn't detect automation
+    sb.uc_open_with_reconnect("https://www.pararius.com/apartments/amsterdam/0-2250", 6)
+    browser = sb.driver
     sections = browser.find_elements(By.XPATH, SECTIONS_XPATH)
     if sections:
         for index, section in enumerate(sections[:3][::-1]):
@@ -39,12 +41,7 @@ def get_latest():
         logger.info('😴😴😴')
 
 
-chrome_options = webdriver.ChromeOptions()
-chrome_options.add_argument("--disable-infobars")
-chrome_options.add_argument("--disable-notifications")
-chrome_options.add_argument("--headless")
-browser = webdriver.Chrome(options=chrome_options)
-
 if __name__ == "__main__":
-    get_latest()
-    
+    # xvfb gives Chrome a virtual display on Linux; headed Chrome is far less likely to be flagged than headless
+    with SB(uc=True, xvfb=True) as sb:
+        get_latest(sb)
