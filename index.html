@@ -40,7 +40,9 @@
   .status { font-size: 12px; color: var(--muted); }
   .status.ok { color: var(--ok); }
   .status.warn { color: var(--warn); }
-  .output { font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; color: var(--muted); max-height: 4.2em; overflow-y: auto; }
+  .output { margin: 0; padding: 0; list-style: none; font-size: 13px; color: var(--muted); max-height: 8.5em; overflow-y: auto; }
+  .output li { display: flex; gap: 8px; padding: 1px 0; }
+  .output li b { color: var(--ink); font-variant-numeric: tabular-nums; flex: none; }
   .buttons { display: flex; gap: 8px; flex-wrap: wrap; }
   button { font: inherit; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line); background: #f6f8fa; cursor: pointer; }
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -69,7 +71,7 @@
       <div><b id="count">0</b> favourite zip codes</div>
       <div class="status" id="status"></div>
     </div>
-    <div class="output" id="output"></div>
+    <ul class="output" id="output"></ul>
     <div class="buttons">
       <button class="primary" id="save">Save to GitHub</button>
       <button id="reset" title="Discard unsaved changes">Reset</button>
@@ -193,9 +195,9 @@ function refresh() {
     districtBoxes[district].indeterminate = n > 0 && n < byDistrict[district].length;
   }
   document.getElementById('count').textContent = sorted.length;
-  document.getElementById('output').textContent = sorted.length
-    ? sorted.map(pc => `${pc} ${namesByPc[pc]}`).join(' · ')
-    : 'None picked, so all of Amsterdam is watched.';
+  document.getElementById('output').innerHTML = sorted.length
+    ? sorted.map(pc => `<li><b>${pc}</b><span>${namesByPc[pc]}</span></li>`).join('')
+    : '<li>None picked, so all of Amsterdam is watched.</li>';
 
   const status = document.getElementById('status');
   if (saved === null) {
