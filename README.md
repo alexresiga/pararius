@@ -6,6 +6,11 @@
     - errors/skipped listings get redirected to the chat with the bot (the `CHAT_ID` variable) (can be disabled (by commenting out/deleting that part of the code (lol)))
     - listings get posted in a group (the `GROUP_ID` variable)
 
+# favourite neighbourhoods
+- open the map at https://alexresiga.github.io/pararius/ (served by GitHub Pages from `index.html`), pick zip codes, click `Save to GitHub` and commit the pasted JSON
+- the picks are stored in `favourites.json` (zip code -> neighbourhood names); the script only posts listings whose postcode is in it
+- an empty `favourites.json` (`{}`) means all of Amsterdam is posted
+
 # github action
 - currently the action runs `every hour between 8 and 20:59`, to increase the frequency edit `.github/workflows/python-automation.yml` (https://crontab.guru/ is your best friend)
 - all seen apartments are written to the `seen.txt` file and the updated file is committed after every script run

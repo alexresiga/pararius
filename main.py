@@ -1,6 +1,8 @@
+import json
 import logging
 
 import os
+import re
 import sys
 import time
 import requests
@@ -16,6 +18,17 @@ SECTIONS_XPATH = "//div[contains(@class, 'listing-search-item__content')]"
 # relative XPaths so they only match inside the given listing section
 ELEMENT_XPATH = ".//a[contains(@class, 'listing-search-item__link listing-search-item__link--title')]"
 PRICE_XPATH = ".//div[contains(@class, 'listing-search-item__price')]"
+# Dutch postcode as shown on a listing, e.g. "1061 MJ Amsterdam"
+POSTCODE_RE = re.compile(r'\b(\d{4}) ?[A-Z]{2}\b')
+
+
+def load_favourites():
+    """Zip codes picked on the GitHub Pages map (index.html). Empty means all of Amsterdam."""
+    try:
+        with open("favourites.json") as f:
+            return set(json.load(f))
+    except FileNotFoundError:
+        return set()
 
 
 def escape_markdown(text):
@@ -46,6 +59,8 @@ def get_latest(sb):
     """Returns True if the run succeeded, False if no listings were found or a message failed to send."""
     with open("seen.txt") as f:
         seen = set(f.read().split('\n'))
+    favourites = load_favourites()
+    logger.info(f"favourite zip codes: {', '.join(sorted(favourites)) or 'none, watching all of Amsterdam'}")
     # UC mode disconnects chromedriver while the page loads so Cloudflare's challenge doesn't detect automation
     sb.uc_open_with_reconnect("https://www.pararius.com/apartments/amsterdam/0-2250", 6)
     browser = sb.driver
@@ -79,6 +94,13 @@ def get_latest(sb):
             # log only; messaging every seen listing on the page would flood the chat each run
             logger.info(f"seen already, skipping {href}")
             continue
+        postcode = POSTCODE_RE.search(section.text)
+        if favourites and postcode and postcode.group(1) not in favourites:
+            # not marked as seen, so it's still sent if its zip code is added to favourites later
+            logger.info(f"not in favourite zip codes ({postcode.group(1)}), skipping {href}")
+            continue
+        if favourites and not postcode:
+            logger.warning(f"no postcode found on listing, sending it anyway: {href}")
         logger.info(f"[{price}]({href}) - {section_text}")
         response = send_message(GROUP_ID, f"[{escape_markdown(price)}]({href}) - {escape_markdown(section_text)}")
         if response.ok:
