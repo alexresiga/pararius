@@ -85,7 +85,7 @@
 <aside class="panel">
   <header>
     <h1>Pararius watcher</h1>
-    <p class="lede">Pick the neighbourhoods you want. Only listings in these zip codes get posted to your Telegram group. With nothing picked, it posts all of Amsterdam.</p>
+    <p class="lede">Pick the neighbourhoods you like. Every listing posted to your Telegram group gets a ★ 0–5 score for how close it is to them: 5 inside one, 4 next door, down to 0 across town.</p>
     <input type="search" id="search" placeholder="Filter by zip or neighbourhood…">
   </header>
   <div class="list" id="list"></div>
@@ -106,7 +106,7 @@
         <li>Pick your neighbourhoods on the map or in the list.</li>
         <li>Click <b>Save to GitHub</b>. It copies your list and opens the GitHub editor for <code>favourites.json</code>: select everything, paste and commit. The page shows the new list once GitHub Pages redeploys (about a minute).</li>
         <li>Create a Telegram bot with <code>@BotFather</code>. Add its token and your chat and group ids as the <code>TOKEN</code>, <code>CHAT_ID</code> and <code>GROUP_ID</code> <a id="secrets-link" target="_blank" rel="noopener">repository secrets</a>.</li>
-        <li>Enable the <b>Check Pararius</b> workflow under <a id="actions-link" target="_blank" rel="noopener">Actions</a>. It checks hourly, posts new listings in your zip codes to the group, and sends problems to your private chat.</li>
+        <li>Enable the <b>Check Pararius</b> workflow under <a id="actions-link" target="_blank" rel="noopener">Actions</a>. It checks hourly, posts every new Amsterdam listing to the group with its closeness score, and sends problems to your private chat.</li>
       </ol>
     </details>
   </footer>
@@ -119,7 +119,7 @@
     </g>
   </svg>
   <span class="details">
-    <span id="version-details">v1.2.0 · loading deploy info…</span>
+    <span id="version-details">v1.3.0 · loading deploy info…</span>
     <span class="runs" id="runs">loading runs…</span>
   </span>
 </div>
@@ -135,7 +135,7 @@ const REPO = location.hostname.endsWith('.github.io')
   ? `${location.hostname.split('.')[0]}/${location.pathname.split('/')[1]}`
   : 'alexresiga/pararius';
 const BRANCH = 'main';
-const VERSION = '1.2.0';
+const VERSION = '1.3.0';
 document.getElementById('secrets-link').href = `https://github.com/${REPO}/settings/secrets/actions`;
 document.getElementById('actions-link').href = `https://github.com/${REPO}/actions`;
 
@@ -233,7 +233,7 @@ function refresh() {
   document.getElementById('count').textContent = sorted.length;
   document.getElementById('output').innerHTML = sorted.length
     ? sorted.map(pc => `<li><b>${pc}</b><span>${namesByPc[pc]}</span></li>`).join('')
-    : '<li>None picked, so all of Amsterdam is watched.</li>';
+    : '<li>None picked, so listings are posted without a score.</li>';
 
   const status = document.getElementById('status');
   if (saved === null) {

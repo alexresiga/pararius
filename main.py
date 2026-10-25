@@ -9,6 +9,8 @@ import requests
 from selenium.webdriver.common.by import By
 from seleniumbase import SB
 
+from closeness import Closeness
+
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 TOKEN = os.getenv('TOKEN')
@@ -23,7 +25,7 @@ POSTCODE_RE = re.compile(r'\b(\d{4}) ?[A-Z]{2}\b')
 
 
 def load_favourites():
-    """Zip codes picked on the GitHub Pages map (index.html). Empty means all of Amsterdam."""
+    """Zip codes picked on the GitHub Pages map (index.html). Empty means listings get no closeness score."""
     try:
         with open("favourites.json") as f:
             return set(json.load(f))
@@ -55,12 +57,28 @@ def report_problem(text):
     send_message(CHAT_ID, escape_markdown(text[:3500]))
 
 
+def closeness_line(closeness, postcode):
+    """First line of a listing message: 0-5 stars for how close it is to the favourite zip codes."""
+    if not closeness.favourites:
+        return ''
+    if not postcode:
+        return "☆☆☆☆☆ ?/5 · no zip code on the listing\n"
+    result = closeness.score(postcode.group(1))
+    if result is None:
+        return f"☆☆☆☆☆ ?/5 · {postcode.group(1)} isn't on the map\n"
+    score, km, nearest = result
+    stars = '★' * score + '☆' * (5 - score)
+    where = f"in {nearest}" if km == 0 and nearest == postcode.group(1) else f"{km:.1f} km from {nearest}"
+    return f"{stars} {score}/5 · {where} {closeness.names[nearest]}\n"
+
+
 def get_latest(sb):
     """Returns True if the run succeeded, False if no listings were found or a message failed to send."""
     with open("seen.txt") as f:
         seen = set(f.read().split('\n'))
     favourites = load_favourites()
-    logger.info(f"favourite zip codes: {', '.join(sorted(favourites)) or 'none, watching all of Amsterdam'}")
+    closeness = Closeness("amsterdam_pc4.geojson", favourites)
+    logger.info(f"favourite zip codes: {', '.join(sorted(favourites)) or 'none, listings get no closeness score'}")
     # UC mode disconnects chromedriver while the page loads so Cloudflare's challenge doesn't detect automation
     sb.uc_open_with_reconnect("https://www.pararius.com/apartments/amsterdam/0-2250", 6)
     browser = sb.driver
@@ -94,15 +112,9 @@ def get_latest(sb):
             # log only; messaging every seen listing on the page would flood the chat each run
             logger.info(f"seen already, skipping {href}")
             continue
-        postcode = POSTCODE_RE.search(section.text)
-        if favourites and postcode and postcode.group(1) not in favourites:
-            # not marked as seen, so it's still sent if its zip code is added to favourites later
-            logger.info(f"not in favourite zip codes ({postcode.group(1)}), skipping {href}")
-            continue
-        if favourites and not postcode:
-            logger.warning(f"no postcode found on listing, sending it anyway: {href}")
-        logger.info(f"[{price}]({href}) - {section_text}")
-        response = send_message(GROUP_ID, f"[{escape_markdown(price)}]({href}) - {escape_markdown(section_text)}")
+        score = closeness_line(closeness, POSTCODE_RE.search(section.text))
+        logger.info(f"{score}[{price}]({href}) - {section_text}")
+        response = send_message(GROUP_ID, f"{escape_markdown(score)}[{escape_markdown(price)}]({href}) - {escape_markdown(section_text)}")
         if response.ok:
             # only mark as seen once delivered, so a failed send is retried next run
             with open("seen.txt", "a") as f:
